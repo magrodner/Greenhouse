@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/security"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:beans="http://www.springframework.org/schema/beans"
+	xsi:schemaLocation="http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.0.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd">
+
+	<http use-expressions="true">
+		<!-- Authentication policy -->
+		<form-login login-page="/signin" login-processing-url="/signin/authenticate" authentication-failure-handler-ref="authenticationFailureHandler" />
+		<logout logout-url="/signout" /> <!--delete-cookies="JSESSIONID" 3.1.0 ONLY -->
+		<!-- Authorization policy TODO replace with @Secured on @Controllers? -->
+		<intercept-url pattern="/" access="permitAll" />
+		<intercept-url pattern="/favicon.ico" access="permitAll" />
+		<intercept-url pattern="/members/**" access="permitAll" />
+		<intercept-url pattern="/groups/**" access="permitAll" />
+		<intercept-url pattern="/pubsub/**" access="permitAll" />
+		<intercept-url pattern="/resources/**" access="permitAll" />
+		<intercept-url pattern="/signup" access="permitAll" requires-channel="${application.secureChannel}" />
+		<intercept-url pattern="/signin" access="permitAll" requires-channel="${application.secureChannel}" />
+		<intercept-url pattern="/signin/facebook" access="permitAll" requires-channel="${application.secureChannel}" />
+		<intercept-url pattern="/reset" access="permitAll" requires-channel="${application.secureChannel}" />
+		<!-- TODO this would probably be better mapped to simply /invite?token={token} but not able to vary security policy here based on presence of a request parameter.  Consider @Secured on @Controller. -->		
+		<intercept-url pattern="/invite/accept" access="permitAll" requires-channel="${application.secureChannel}" />		
+		<intercept-url pattern="/**" access="isAuthenticated()" requires-channel="${application.secureChannel}" />
+	</http>
+
+	<authentication-manager alias="authenticationManager">
+		<authentication-provider ref="usernamePasswordAuthenticationProvider" />
+	</authentication-manager>
+
+	<beans:bean id="usernamePasswordAuthenticationProvider" class="com.springsource.greenhouse.account.UsernamePasswordAuthenticationProvider" />
+
+	<beans:bean id="authenticationFailureHandler" class="com.springsource.greenhouse.signin.RedirectingAuthenticationFailureHandler" />
+
+	<beans:bean id="accountMapper" class="com.springsource.greenhouse.account.AccountMapper">
+		<beans:constructor-arg value="${application.url}/members/{profileKey}" />		
+	</beans:bean>
+	
+	<beans:bean id="accountRepository" class="com.springsource.greenhouse.account.JdbcAccountRepository" />
+
+	<beans:import resource="security-oauth-provider.xml" />
+	
+	<beans:import resource="security-oauth-consumer.xml" />
+	
+	<!-- Profile-specific beans -->
+		
+	<beans:beans profile="embedded">
+		<beans:bean id="passwordEncoder" class="org.springframework.security.encrypt.NoOpPasswordEncoder" factory-method="getInstance" />		
+		<beans:bean id="stringEncryptor" class="org.springframework.security.encrypt.NoOpStringEncryptor" factory-method="getInstance" />
+	</beans:beans>
+
+	<beans:beans profile="standard">
+		<beans:bean id="passwordEncoder" class="org.springframework.security.encrypt.StandardPasswordEncoder">
+			<beans:constructor-arg value="${security.encryptPassword}" />
+		</beans:bean>
+		<beans:bean id="stringEncryptor" class="org.springframework.security.encrypt.SearchableStringEncryptor">
+			<beans:constructor-arg value="${security.encryptPassword}" />
+			<beans:constructor-arg value="${security.encryptSalt}" />
+		</beans:bean>		
+	</beans:beans>
+
+</beans:beans>
